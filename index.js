@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import * as dotenv from "dotenv";
 import bodyParser from "body-parser";
 import mongoose from "mongoose";
+import Notes from "./models/note.js";
 dotenv.config();
 
 const app = express();
@@ -43,17 +44,23 @@ const USERS = [
   },
 ];
 const PRIORITIES = ["High", "Medium", "Low"];
-let notes = [];
 
-app.get("/notes", (_req, res) => {
-  res.json({ data: { notes, users: USERS, priorities: PRIORITIES } });
+app.get("/notes", async (_req, res) => {
+  try {
+    const notes = await Notes.find({}).sort("-updatedAt");
+    const count = await Notes.countDocuments();
+    res.json({ data: { notes, count, users: USERS, priorities: PRIORITIES } });
+  } catch (error) {
+    console.log("error in /notes", error);
+  }
 });
 
-app.post("/filters", (req, res) => {
+app.post("/filters", async (req, res) => {
   console.log("req.body", req.body);
   let { selectedUsers, selectedPriorities, sort } = req.body;
   // req.body { selectedUsers: [], selectedPriorities: [], sort: '' }
 
+  const notes = await Notes.find().sort("-updatedAt");
   let filteredNotes = [...notes];
   if (selectedUsers.length > 0) {
     selectedUsers = selectedUsers.map((user) => {
@@ -94,27 +101,39 @@ io.on("connection", (socket) => {
 
   socket.join("app");
 
-  socket.on("add_note", (data) => {
-    notes.push(data);
-    console.log("data in add_note", data);
-    io.to("app").emit("list_note", notes);
+  socket.on("add_note", async (data) => {
+    const newNote = new Notes(data);
+
+    try {
+      await newNote.save();
+      const notes = await Notes.find().sort("-updatedAt");
+      io.to("app").emit("list_note", notes);
+    } catch (error) {
+      console.log("error in add_note", error.message);
+    }
   });
 
-  socket.on("edit_note", (data) => {
+  socket.on("edit_note", async (data) => {
     console.log("data in edit", data);
-    const foundNoteIndex = notes.findIndex(
-      (note) => note.createdAt === data.createdAt
-    );
 
-    notes[foundNoteIndex] = data;
-    io.to("app").emit("list_note", notes);
+    try {
+      await Notes.findByIdAndUpdate(data._id, data);
+      const notes = await Notes.find().sort("-updatedAt");
+      io.to("app").emit("list_note", notes);
+    } catch (error) {
+      console.log("error in edit_note", error.message);
+    }
   });
 
-  socket.on("delete_note", (data) => {
+  socket.on("delete_note", async (data) => {
     console.log("data in delete", data);
-    notes = notes.filter((note) => note.createdAt !== data.id);
-
-    io.to("app").emit("list_note", notes);
+    try {
+      await Notes.findByIdAndRemove(data._id);
+      const notes = await Notes.find().sort("-updatedAt");
+      io.to("app").emit("list_note", notes);
+    } catch (error) {
+      console.log("error in delete_note", error.message);
+    }
   });
 
   socket.on("disconnect", () => console.log("User disconnected", socket.id));
