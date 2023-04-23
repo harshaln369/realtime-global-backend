@@ -45,18 +45,47 @@ const USERS = [
 ];
 const PRIORITIES = ["High", "Medium", "Low"];
 
-app.get("/notes", async (_req, res) => {
-  try {
-    const notes = await Notes.find({}).sort("-updatedAt");
-    const count = await Notes.countDocuments();
-    res.json({ data: { notes, count, users: USERS, priorities: PRIORITIES } });
-  } catch (error) {
-    console.log("error in /notes", error);
+app.post("/notes", async (req, res) => {
+  let { selectedUsers, selectedPriorities, sort } = req.body;
+  console.log("req.body", selectedUsers, selectedPriorities, sort);
+  let notes;
+  if (!selectedUsers || !selectedUsers.length) {
+    selectedUsers = USERS.map((user) => user.id);
+  } else {
+    selectedUsers = selectedUsers.map((user) => {
+      const findUser = USERS.find((el) => el.name === user);
+      return findUser.id;
+    });
   }
+  if (!selectedPriorities || !selectedPriorities.length) {
+    selectedPriorities = [...PRIORITIES];
+  }
+  let sortValue = {};
+  if (sort && sort === "Alphabetical Order") {
+    sortValue = {
+      note: 1,
+    };
+  } else if (sort && sort === "Created At") {
+    sortValue = {
+      createdAt: "desc",
+    };
+  } else if (sort && sort === "Updated At") {
+    sortValue = {
+      updatedAt: "desc",
+    };
+  }
+
+  notes = await Notes.find({
+    $and: [
+      { createdBy: { $in: selectedUsers } },
+      { priority: { $in: selectedPriorities } },
+    ],
+  }).sort(sortValue);
+
+  res.json({ data: { notes, users: USERS, priorities: PRIORITIES } });
 });
 
 app.post("/filters", async (req, res) => {
-  console.log("req.body", req.body);
   let { selectedUsers, selectedPriorities, sort } = req.body;
   // req.body { selectedUsers: [], selectedPriorities: [], sort: '' }
 
