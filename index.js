@@ -46,8 +46,8 @@ const USERS = [
 const PRIORITIES = ["High", "Medium", "Low"];
 
 app.post("/notes", async (req, res) => {
-  let { selectedUsers, selectedPriorities, sort } = req.body;
-  console.log("req.body", selectedUsers, selectedPriorities, sort);
+  let { selectedUsers, selectedPriorities, sort, limit } = req.body;
+  console.log("req.body", selectedUsers, selectedPriorities, sort, limit);
   let notes;
   if (!selectedUsers || !selectedUsers.length) {
     selectedUsers = USERS.map((user) => user.id);
@@ -80,49 +80,13 @@ app.post("/notes", async (req, res) => {
       { createdBy: { $in: selectedUsers } },
       { priority: { $in: selectedPriorities } },
     ],
-  }).sort(sortValue);
+  })
+    .sort(sortValue)
+    .limit(limit);
 
-  res.json({ data: { notes, users: USERS, priorities: PRIORITIES } });
-});
+  const count = await Notes.countDocuments();
 
-app.post("/filters", async (req, res) => {
-  let { selectedUsers, selectedPriorities, sort } = req.body;
-  // req.body { selectedUsers: [], selectedPriorities: [], sort: '' }
-
-  const notes = await Notes.find().sort("-updatedAt");
-  let filteredNotes = [...notes];
-  if (selectedUsers.length > 0) {
-    selectedUsers = selectedUsers.map((user) => {
-      const findUser = USERS.find((el) => el.name === user);
-
-      return findUser.id;
-    });
-
-    filteredNotes = notes.filter((note) =>
-      selectedUsers.includes(note.createdBy)
-    );
-    console.log("filteredNotes", filteredNotes);
-  }
-  if (selectedPriorities.length > 0) {
-    filteredNotes = notes.filter((note) =>
-      selectedPriorities.includes(note.priority)
-    );
-  }
-  // ["Alphabetical Order", "Created At", "Updated At"]
-  if (sort === "Alphabetical Order") {
-    filteredNotes = filteredNotes.sort((a, b) => a.note.localeCompare(b.note));
-  } else if (sort === "Created At") {
-    filteredNotes = filteredNotes.sort(
-      (a, b) =>
-        new Date(b.createdAt).valueOf() - new Date(a.createdAt).valueOf()
-    );
-  } else if (sort === "Updated At") {
-    filteredNotes = filteredNotes.sort(
-      (a, b) =>
-        new Date(b.updatedAt).valueOf() - new Date(a.updatedAt).valueOf()
-    );
-  }
-  res.json({ data: filteredNotes });
+  res.json({ data: { notes, users: USERS, count, priorities: PRIORITIES } });
 });
 
 io.on("connection", (socket) => {
