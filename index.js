@@ -104,7 +104,8 @@ io.on("connection", (socket) => {
     try {
       await newNote.save();
       const notes = await Notes.find().sort("-updatedAt");
-      io.to("app").emit("list_note", notes);
+      const recCount = await Notes.countDocuments();
+      io.to("app").emit("list_note", { notes, recCount });
     } catch (error) {
       console.log("error in add_note", error.message);
     }
@@ -115,8 +116,9 @@ io.on("connection", (socket) => {
 
     try {
       await Notes.findByIdAndUpdate(data._id, data);
+      const recCount = await Notes.countDocuments();
       const notes = await Notes.find().sort("-updatedAt");
-      io.to("app").emit("list_note", notes);
+      io.to("app").emit("list_note", { notes, recCount });
     } catch (error) {
       console.log("error in edit_note", error.message);
     }
@@ -127,7 +129,8 @@ io.on("connection", (socket) => {
     try {
       await Notes.findByIdAndRemove(data._id);
       const notes = await Notes.find().sort("-updatedAt");
-      io.to("app").emit("list_note", notes);
+      const recCount = await Notes.countDocuments();
+      io.to("app").emit("list_note", { notes, recCount });
     } catch (error) {
       console.log("error in delete_note", error.message);
     }
