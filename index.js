@@ -73,6 +73,10 @@ app.post("/notes", async (req, res) => {
     sortValue = {
       updatedAt: "desc",
     };
+  } else {
+    sortValue = {
+      updatedAt: "desc",
+    };
   }
 
   notes = await Notes.find({
